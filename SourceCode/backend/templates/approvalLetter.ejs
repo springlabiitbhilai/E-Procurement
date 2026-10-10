@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <style>
+
+        @page {
+            size: A4;
+            margin-top: 190px;
+            margin-bottom: 110px;
+            margin-left: 20mm;
+            margin-right: 20mm;
+        }
+
+        body {
+            font-family: "Times New Roman", serif;
+            font-size: 13px;
+            line-height: 1.35;
+            color: #000;
+            padding-bottom: 42px;
+            text-align: justify;
+        }
+
+        /* HEADER */
+
+        .header-container {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .logo-section {
+
+            width: 140px;
+        }
+
+        .logo {
+
+            width: 120px;
+
+            height: auto;
+        }
+
+        .header-text {
+
+            width: 78%;
+
+            text-align: right;
+
+            color: #4b3f8f;
+
+            line-height: 1.15;
+        }
+
+        .hindi-title {
+
+            margin: 0;
+
+            font-size: 21px;
+
+            font-weight: bold;
+        }
+
+        .hindi-address {
+
+            margin: 2px 0 6px 0;
+
+            font-size: 14px;
+
+            font-weight: normal;
+        }
+
+        .english-title {
+
+            margin: 0;
+
+            font-size: 19px;
+
+            font-weight: bold;
+        }
+
+        .english-address {
+
+            margin: 2px 0;
+            font-size: 13px;
+        }
+
+        .website {
+
+            margin-top: 2px;
+            font-size: 12px;
+            color: #1a4ea1;
+        }
+
+
+        /* CONTENT */
+
+        .date {
+            text-align: right;
+            margin-top: 0px;
+        }
+
+        .subject {
+            margin-top: 18px;
+            font-weight: 600;
+        }
+
+        .section {
+            margin-top: 8px;
+        }
+
+        ul {
+            margin-top: 5px;
+        }
+
+        .signature {
+            margin-top: 20px;
+        }
+
+        .fund-status {
+            margin-top: 15px;
+        }
+
+       
+    </style>
+</head>
+
+<body>
+    
+
+    <!-- DATE -->
+
+    <div class="date">
+
+        <strong>Date:</strong> <%= currentDate %>
+
+    </div>
+
+    <!-- TO -->
+
+    <div class="section">
+
+        <p>
+            To <br>
+            The DORD <br>
+            Indian Institute of Technology Bhilai
+        </p>
+
+    </div>
+
+    <!-- SUBJECT -->
+
+    <div class="subject">
+
+        Subject: Approval needed to recruit temporary project staff members
+
+    </div>
+
+    <!-- BODY -->
+
+    <div class="section">
+
+        <p>
+            Dear Sir,
+        </p>
+
+        <p>
+            This is to inform you that we need to hire temporary
+            research staff members for the following projects.
+        </p>
+
+    </div>
+
+    <!-- PROJECTS -->
+
+    <div class="section">
+
+        <ol>
+
+            <% projects.forEach((project)=> { %>
+
+                <li>
+                    "<%= project.projectTitle %>"
+                    (Project Code:
+                    <%= project.projectCode %>)
+                </li>
+
+                <% }) %>
+
+        </ol>
+
+    </div>
+
+    <!-- APPROVAL -->
+
+    <div class="section">
+
+        <p>
+            You are kindly requested to approve the following:
+        </p>
+
+        <p>
+            A. To put up advertisement(s) and
+            application form(s) on public forums
+            by the PI.
+        </p>
+
+    </div>
+
+    <!-- ANNEXURES -->
+
+    <div class="section">
+
+        <% projects.forEach((project, index)=> { %>
+
+            <p>
+                Annexure <%= index + 1 %>:
+                Advertisement & application form
+                for project code
+                <%= project.projectCode %>
+            </p>
+
+            <% }) %>
+
+    </div>
+
+    <!-- COMMITTEE -->
+
+    <div class="section">
+
+        <p>
+            B. The following shortlisting-cum-selection
+            committee to complete the hiring process:
+        </p>
+
+        <ul>
+
+            <% committeeMembers.forEach((member)=> { %>
+
+                <li>
+                    <%= member %>
+                </li>
+
+                <% }) %>
+
+        </ul>
+
+    </div>
+
+    <!-- SIGNATURE -->
+
+    <div class="signature">
+
+        <p>
+            Yours sincerely,
+        </p>
+
+        <br>
+
+        <p>
+            <strong>
+                <%= piName %> (PI)
+            </strong>
+        </p>
+
+    </div>
+
+    <!-- FUND -->
+
+    <div class="fund-status" style="text-align:right;">
+
+        <p>
+            Fund status to be confirmed by the O/o R&D:
+            Yes ☐ &nbsp;&nbsp;&nbsp; No ☐
+        </p>
+
+        <br><br>
+
+        <p>
+            Dean of Research & Development
+        </p>
+
+    </div>
+
+
+</body>
+
+</html>

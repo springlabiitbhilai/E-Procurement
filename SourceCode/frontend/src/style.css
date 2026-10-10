@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+/* primary colors */
+:root {
+  --primary: #01161e;
+  --primaryAccent: #124559;
+  --secondary: #598392;
+  --soft: #aec3b0;
+  --light: #eff6e0;
+}
+
+html {
+  font-size: 14px; 
+}
+
+/* Animation to left heading of AuthPageWrapper */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+/* 🌌 Dashboard Background */
+.dashboard-bg {
+  min-height: 100vh;
+  background: radial-gradient(
+    circle at top left,
+    var(--primaryAccent),
+    #01161e 60%
+  );
+  position: relative;
+  overflow: hidden;
+}
+
+/* ✨ Animated gradient blobs */
+.dashboard-bg::before,
+.dashboard-bg::after {
+  content: "";
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.35;
+  animation: float 12s infinite ease-in-out;
+}
+
+.dashboard-bg::before {
+  background: #598392;
+  top: -100px;
+  left: -100px;
+}
+
+.dashboard-bg::after {
+  background: #aec3b0;
+  bottom: -120px;
+  right: -120px;
+  animation-delay: 6s;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-40px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* 🪟 Glass cards */
+.glass-card {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transition: all 0.35s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* 🚀 Page animation */
+.fade-in {
+  animation: fadeIn 0.9s ease forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(25px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 🔘 Premium button */
+.btn-primary {
+  background: linear-gradient(135deg, #aec3b0, #598392);
+  color: #01161e;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 10px 18px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: scale(1.05);
+  box-shadow: 0 10px 30px rgba(174, 195, 176, 0.5);
+}
+
+/* Hide scrollbar but allow scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE & Edge */
+  scrollbar-width: none; /* Firefox */
+}
