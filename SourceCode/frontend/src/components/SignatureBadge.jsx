@@ -28,7 +28,7 @@ export default function SignatureBadge({ result, loading }) {
       }`}
     >
       {LABELS[result.status]}
-      {warning && " (form not covered)"}
+      {warning && " (form not protected)"}
     </span>
   );
 }

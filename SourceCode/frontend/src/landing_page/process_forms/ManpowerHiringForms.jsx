@@ -9,14 +9,14 @@ import {
 import { axiosInstance } from "../../config/api";
 
 const emptyPosition = () => ({
-  positionName: "",
-  numberOfPosts: "",
-  ageLimit: "",
-  salaryStart: "",
-  salaryEnd: "",
-  duration: "",
-  essentialQualifications: [""],
-  desirableQualifications: [""],
+  positionName: "intern",
+  numberOfPosts: "1",
+  ageLimit: "25",
+  salaryStart: "10",
+  salaryEnd: "20",
+  duration: "6 months",
+  essentialQualifications: ["ththj"],
+  desirableQualifications: ["vghjy"],
 });
 
 const AGENCIES = [
@@ -91,13 +91,13 @@ export default function ManpowerHiringForms({
   const [formData, setFormData] = useState({
     projectTitle: "",
     projectCode: "",
-    sponsoringAgency: "",
+    sponsoringAgency: "DST",
     piName: "",
-    piDesignation: "",
+    piDesignation: "professor",
     piDepartment: "",
-    officeAddress: "",
-    piEmail: "",
-    piWebsite: "",
+    officeAddress: "bhilai",
+    piEmail: "ghgfh",
+    piWebsite: "ghj",
 
     positions: [emptyPosition()],
 
@@ -110,9 +110,9 @@ export default function ManpowerHiringForms({
     submissionDeadline: "",
     interviewDate: "",
     interviewMode: "",
-    venue: "",
+    venue: "bhilai",
     reportingTime: "",
-    committeeMembers: [""],
+    committeeMembers: ["tyty"],
     attachment: null,
     privateKeyFile: null,
   });

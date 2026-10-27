@@ -1,15 +1,29 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FaBars, FaTimes } from "react-icons/fa";
+import { Icon } from "./components/Icons";
 import logo from "../assets/spring_lab.png";
+import "./navbar.css";
+
+const DASHBOARD_LINKS = {
+  PI: { to: "/pi-dashboard", label: "PI Dashboard" },
+  RND: { to: "/rnd-dashboard", label: "R&D Dashboard" },
+  DORD: { to: "/DORD-dashboard", label: "DORD Dashboard" },
+  DRRD: { to: "/DRRD-dashboard", label: "DRRD Dashboard" },
+};
 
 function NavBar() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
   const name = localStorage.getItem("name");
+
+  // On the login page the bar floats over the campus photo
+  const overlay = pathname === "/" && !token;
+
+  const dashboard = DASHBOARD_LINKS[role];
 
   const handleLogout = () => {
     localStorage.clear();
@@ -18,150 +32,86 @@ function NavBar() {
 
   const closeMenu = () => setMenuOpen(false);
 
-  return (
-    <nav className="bg-[var(--primaryAccent)] text-white px-4 sm:px-6 py-3 shadow-md">
-      <div className="flex justify-between items-center">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
-          <img
-            src={logo}
-            alt="SPring Labs Logo"
-            className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full"
-          />
+  // Same items for the desktop bar and the mobile menu
+  const items = token ? (
+    <>
+      {dashboard && (
+        <Link
+          to={dashboard.to}
+          onClick={closeMenu}
+          className={`nav-link ${pathname === dashboard.to ? "is-active" : ""}`}
+        >
+          {dashboard.label}
+        </Link>
+      )}
 
-          <div className="flex flex-col leading-tight">
-            <span className="text-lg sm:text-xl md:text-2xl font-bold">
-              E-Procura
-            </span>
-            <span className="text-[10px] sm:text-xs text-white/80">
-              A SPrIng Lab product
-            </span>
-          </div>
+      <span className="nav-user">
+        <span className="nav-avatar" aria-hidden="true">
+          {(name || "?").trim().charAt(0).toUpperCase()}
+        </span>
+        <span className="nav-user-name">{name}</span>
+        <span className="nav-role">{role}</span>
+      </span>
+
+      <button
+        type="button"
+        onClick={() => {
+          closeMenu();
+          handleLogout();
+        }}
+        className="nav-logout"
+      >
+        <Icon name="logout" size={16} />
+        Logout
+      </button>
+    </>
+  ) : (
+    <Link to="/" onClick={closeMenu} className="nav-cta">
+      Login / Sign up
+    </Link>
+  );
+
+  return (
+    <header className={`nav ${overlay ? "nav--overlay" : ""}`}>
+      <div className="nav-inner">
+        {/* Logo */}
+        <Link to="/" className="nav-brand" onClick={closeMenu}>
+          <img src={logo} alt="SPrIng Lab logo" className="nav-logo" />
+
+          <span className="nav-brand-text">
+            <span className="nav-brand-name">E-Procura</span>
+            <span className="nav-brand-tag">A SPrInG Lab product</span>
+          </span>
         </Link>
 
-        {/* Desktop menu (md and up) */}
-        <div className="hidden md:flex items-center gap-4 lg:gap-6">
-          {token ? (
-            <>
-              {role === "PI" && (
-                <Link to="/pi-dashboard" className="hover:underline">
-                  PI Dashboard
-                </Link>
-              )}
+        {overlay ? (
+          <p className="nav-institute">Indian Institute of Technology Bhilai</p>
+        ) : (
+          <>
+            <nav className="nav-desktop" aria-label="Main">
+              {items}
+            </nav>
 
-              {role === "RND" && (
-                <Link to="/rnd-dashboard" className="hover:underline">
-                  R&D Dashboard
-                </Link>
-              )}
-
-              {role === "DORD" && (
-                <Link to="/DORD-dashboard" className="hover:underline">
-                  DORD Dashboard
-                </Link>
-              )}
-
-              {role === "DRRD" && (
-                <Link to="/DRRD-dashboard" className="hover:underline">
-                  DRRD Dashboard
-                </Link>
-              )}
-
-              <span className="text-sm bg-white/20 px-3 py-1 rounded-lg">
-                {name} ({role})
-              </span>
-
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded-lg text-sm"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <Link to="/" className="hover:underline">
-              SignUp/Login
-            </Link>
-          )}
-        </div>
-
-        {/* Hamburger button (mobile only) */}
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden p-2 rounded-lg hover:bg-white/10"
-          aria-label="Toggle menu"
-        >
-          {menuOpen ? <FaTimes size={22} /> : <FaBars size={22} />}
-        </button>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="nav-toggle"
+              aria-label="Toggle menu"
+              aria-expanded={menuOpen}
+            >
+              <Icon name={menuOpen ? "close" : "menu"} size={22} />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Mobile dropdown menu */}
-      {menuOpen && (
-        <div className="md:hidden mt-3 flex flex-col gap-3 pb-3 border-t border-white/10 pt-3">
-          {token ? (
-            <>
-              {role === "PI" && (
-                <Link
-                  to="/pi-dashboard"
-                  className="hover:underline"
-                  onClick={closeMenu}
-                >
-                  PI Dashboard
-                </Link>
-              )}
-
-              {role === "RND" && (
-                <Link
-                  to="/rnd-dashboard"
-                  className="hover:underline"
-                  onClick={closeMenu}
-                >
-                  R&D Dashboard
-                </Link>
-              )}
-
-              {role === "DORD" && (
-                <Link
-                  to="/DORD-dashboard"
-                  className="hover:underline"
-                  onClick={closeMenu}
-                >
-                  DORD Dashboard
-                </Link>
-              )}
-
-              {role === "DRRD" && (
-                <Link
-                  to="/DRRD-dashboard"
-                  className="hover:underline"
-                  onClick={closeMenu}
-                >
-                  DRRD Dashboard
-                </Link>
-              )}
-
-              <span className="text-sm bg-white/20 px-3 py-1 rounded-lg w-fit">
-                {name} ({role})
-              </span>
-
-              <button
-                onClick={() => {
-                  closeMenu();
-                  handleLogout();
-                }}
-                className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded-lg text-sm w-fit"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <Link to="/" className="hover:underline" onClick={closeMenu}>
-              SignUp/Login
-            </Link>
-          )}
-        </div>
+      {/* Mobile menu */}
+      {!overlay && menuOpen && (
+        <nav className="nav-mobile" aria-label="Mobile">
+          {items}
+        </nav>
       )}
-    </nav>
+    </header>
   );
 }
 

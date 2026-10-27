@@ -5,7 +5,9 @@ import User from "../models/user.js";
 // ======================================
 // RECRUITMENT WORKFLOW
 // PI -> DRRD (verify) -> RND (fund check) -> DRRD (review)
-//    -> DORD (approve / reject) -> DRRD (dispatch) -> PI
+//    -> DORD (approve / reject) -> DRRD (dispatch) -> PI + MEDIA CELL (web upload) -> PUBLISHED
+// Rejected requests end at SENT_TO_PI and never reach the Media Cell.
+
 // ======================================
 
 export const STAGES = {
@@ -15,7 +17,13 @@ export const STAGES = {
   DORD_APPROVAL: "DORD_APPROVAL",
   DRRD_DISPATCH: "DRRD_DISPATCH",
   SENT_TO_PI: "SENT_TO_PI",
+  MEDIA_PUBLISH: "MEDIA_PUBLISH",
+  PUBLISHED: "PUBLISHED",
 };
+
+// Stages at which the PI may see the Dean's decision and the signed file
+export const isDispatched = (stage) =>
+  [STAGES.SENT_TO_PI, STAGES.MEDIA_PUBLISH, STAGES.PUBLISHED].includes(stage);
 
 // Records created before the workflow existed have no stage:
 // pending ones start at DRRD verification, decided ones are closed

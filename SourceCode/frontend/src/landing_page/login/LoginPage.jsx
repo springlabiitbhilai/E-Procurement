@@ -1,10 +1,23 @@
-import React from "react";
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_URL, axiosInstance } from "../../config/api";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
 import CryptoJS from "crypto-js";
+import { axiosInstance } from "../../config/api";
+import {
+  TextField,
+  PasswordField,
+  SelectField,
+  FormAlert,
+  SubmitButton,
+  ROLE_OPTIONS,
+} from "../../components/AuthFields";
+
+const DASHBOARDS = {
+  PI: "/pi-dashboard",
+  RND: "/rnd-dashboard",
+  DORD: "/DORD-dashboard",
+  DRRD: "/DRRD-dashboard",
+  MEDIA_CELL: "/media-cell-dashboard"
+};
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -16,22 +29,24 @@ export default function LoginPage() {
   });
 
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: "" });
+    const { name, value } = e.target;
+
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
     setError("");
   };
 
   const validate = () => {
-    let newErrors = {};
+    const newErrors = {};
+    const email = form.email.trim();
 
-    if (!form.email) {
+    if (!email) {
       newErrors.email = "Email is required";
-    } else if (!form.email.endsWith("@iitbhilai.ac.in")) {
+    } else if (!email.endsWith("@iitbhilai.ac.in")) {
       newErrors.email = "Email must end with @iitbhilai.ac.in";
     }
 
@@ -50,93 +65,90 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 🔴 Required validation
-    if (!validate()) return;
+    if (loading || !validate()) return;
 
     try {
       setLoading(true);
+
+      // The password is hashed in the browser before it is sent
       const hashedPassword = CryptoJS.SHA256(form.password).toString();
 
       const res = await axiosInstance.post(`/api/login`, {
         ...form,
+        email: form.email.trim(),
         password: hashedPassword,
       });
 
-      // ✅ Save token
-      localStorage.setItem("token", res.data.token);
+      const { token, user } = res.data;
 
-      localStorage.setItem("role", res.data.user.role);
-      localStorage.setItem("name", res.data.user.fullName);
+      localStorage.setItem("token", token);
+      localStorage.setItem("role", user.role);
+      localStorage.setItem("name", user.fullName);
 
-      // ✅ Role-based dashboard redirect
-      if (res.data.user.role === "PI") navigate("/pi-dashboard");
-      else if (res.data.user.role === "RND") navigate("/rnd-dashboard");
-      else if (res.data.user.role === "DORD") navigate("/DORD-dashboard");
-      else if (res.data.user.role === "DRRD") navigate("/DRRD-dashboard");
+      navigate(DASHBOARDS[user.role] || "/");
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
+      console.error(err);
+
+      if (err.response) {
+        setError(err.response.data?.message || "Login failed");
+      } else if (err.request) {
+        setError(
+          "Cannot reach the server. Check your connection and try again.",
+        );
+      } else {
+        setError("Login failed");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-3 bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-md shadow border border-white/20"
-    >
-      {error && <p className="text-red-400 bg-white/20 p-2 rounded">{error}</p>}
+    <form onSubmit={handleSubmit} noValidate className="auth-form">
+      {error && <FormAlert>{error}</FormAlert>}
 
-      <input
-        type="email"
+      <TextField
+        label="Email"
         name="email"
-        placeholder="Email"
+        type="email"
+        autoComplete="username"
+        placeholder="name@iitbhilai.ac.in"
+        value={form.email}
         onChange={handleChange}
-        className="w-full p-2 rounded-lg bg-white text-black outline-none"
+        error={errors.email}
       />
-      {errors.email && <p className="text-red-400 text-sm">{errors.email}</p>}
 
-      <div className="relative">
-        <input
-          name="password"
-          type={showPassword ? "text" : "password"}
-          placeholder="Password"
-          onChange={handleChange}
-          className="w-full p-2 rounded-lg bg-white text-black outline-none pr-10"
-        />
-
-        {/* Eye Button */}
-        <span
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-2 cursor-pointer text-gray-600"
-        >
-          {showPassword ? <FaEyeSlash /> : <FaEye />}
-        </span>
-      </div>
-      {errors.password && (
-        <p className="text-red-400 text-sm">{errors.password}</p>
-      )}
-
-      <select
-        name="role"
+      <PasswordField
+        label="Password"
+        name="password"
+        autoComplete="current-password"
+        placeholder="Enter your password"
+        value={form.password}
         onChange={handleChange}
-        className="w-full p-2 rounded-lg bg-white text-black outline-none"
-      >
-        <option value="">Select Role</option>
-        <option value="PI">PI (Principal Investigator)</option>
-        <option value="DORD">DORD (Dean of R&D)</option>
-        <option value="DRRD">DRRD (Deputy Registrar of R&D)</option>
-        <option value="RND">RND (Research and Development)</option>
-      </select>
-      {errors.role && <p className="text-red-400 text-sm">{errors.role}</p>}
+        error={errors.password}
+      />
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-[var(--primaryAccent)] hover:bg-[var(--primaryAccent)]/80 text-white py-2 rounded-lg font-semibold mt-2"
+      <SelectField
+        label="Role"
+        name="role"
+        value={form.role}
+        onChange={handleChange}
+        error={errors.role}
+        hint="Choose the desk you are logging in to."
       >
-        {loading ? "Logging in..." : "Login"}
-      </button>
+        <option value="">Select role</option>
+        {ROLE_OPTIONS.map((role) => (
+          <option key={role.value} value={role.value}>
+            {role.label}
+          </option>
+        ))}
+      </SelectField>
+
+      <div className="auth-submit">
+        <SubmitButton loading={loading} loadingText="Logging in...">
+          Login
+        </SubmitButton>
+      </div>
     </form>
   );
 }

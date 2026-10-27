@@ -3,6 +3,7 @@ import ejs from "ejs";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { isDispatched } from "../utils/recruitmentWorkflow.js";
 import puppeteer from "puppeteer";
 import chromium from "@sparticuz/chromium";
 import { fileURLToPath } from "url";
@@ -1115,14 +1116,18 @@ const drrdAction = async (req, res) => {
       recruitment.status = "Rejected";
     }
 
+        let finalStage = nextStage;
+
     if (action === "SEND_TO_PI") {
-      recruitment.status =
-        getDeanDecision(recruitment)?.action === "APPROVED"
-          ? "Approved"
-          : "Rejected";
+      const approved = getDeanDecision(recruitment)?.action === "APPROVED";
+
+      recruitment.status = approved ? "Approved" : "Rejected";
+
+      // approved requests go on to the Media Cell for web upload
+      finalStage = approved ? STAGES.MEDIA_PUBLISH : STAGES.SENT_TO_PI;
     }
 
-    recruitment.stage = nextStage;
+    recruitment.stage = finalStage;
 
     recruitment.history.push({
       stage,
@@ -1312,19 +1317,25 @@ const getMyRequests = async (req, res) => {
     }).sort({ createdAt: -1 });
 
     res.status(200).json(
-      requests.map((request) => {
+           requests.map((request) => {
         const stage = getStage(request);
         const data = { ...request.toObject(), stage };
 
-        // The PI gets the Dean's decision and signed file only once
-        // DRRD sends them
-        if (stage !== STAGES.SENT_TO_PI) {
+        if (!isDispatched(stage)) {
           delete data.signedApprovalPdf;
           delete data.deanDecision;
           data.history = (data.history || []).filter(
             (entry) => entry.role !== "DORD",
           );
         }
+
+        // tells the PI where publishing stands
+        data.publishStatus =
+          stage === STAGES.MEDIA_PUBLISH
+            ? "SENT_FOR_PUBLISH"
+            : stage === STAGES.PUBLISHED
+              ? "PUBLISHED"
+              : null;
 
         return data;
       }),
@@ -1351,6 +1362,13 @@ const verifyRecruitmentPISignature = async (req, res) => {
         message: "Recruitment not found",
       });
     }
+
+    if (
+  req.user.role === "MEDIA_CELL" &&
+  ![STAGES.MEDIA_PUBLISH, STAGES.PUBLISHED].includes(getStage(recruitment))
+) {
+  return res.status(403).json({ success: false, message: "Access denied" });
+}
 
     // A PI can only verify their own request
     if (req.user.role === "PI" && recruitment.requestedBy !== req.user.email) {
@@ -1422,7 +1440,20 @@ const verifyRecruitmentHistory = async (req, res) => {
       });
     }
 
+        const stage = getStage(recruitment);
+
     let entries = recruitment.history || [];
+
+    // Media Cell can only verify requests that have reached it
+    if (
+      req.user.role === "MEDIA_CELL" &&
+      ![STAGES.MEDIA_PUBLISH, STAGES.PUBLISHED].includes(stage)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
 
     if (req.user.role === "PI") {
       // A PI can only verify their own request
@@ -1433,9 +1464,8 @@ const verifyRecruitmentHistory = async (req, res) => {
         });
       }
 
-      // Same visibility as getMyRequests: the Dean's decision is hidden
-      // until DRRD sends the file
-      if (getStage(recruitment) !== STAGES.SENT_TO_PI) {
+      // Dean's decision stays hidden until DRRD sends the file
+      if (!isDispatched(stage)) {
         entries = entries.filter((entry) => entry.role !== "DORD");
       }
     }
@@ -1454,6 +1484,143 @@ const verifyRecruitmentHistory = async (req, res) => {
   }
 };
 
+// ======================================
+// MEDIA CELL
+// Dashboard: approved requests waiting for / already on the web
+// Action PUBLISHED: signed confirmation that the web upload is done
+// ======================================
+
+const getMediaCellRequests = async (req, res) => {
+  try {
+    if (req.user.role !== "MEDIA_CELL") {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    const recruitments = await Recruitment.find({
+      stage: { $in: [STAGES.MEDIA_PUBLISH, STAGES.PUBLISHED] },
+    }).sort({ updatedAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      recruitments: recruitments.map((r) => {
+        const data = { ...r.toObject(), stage: getStage(r) };
+
+        // Media Cell has no use for fund details (response only; the
+        // stored signedPayload is untouched, so verification is unaffected)
+        delete data.fundCheck;
+        delete data.fundBlocked;
+
+        if (data.signedPayload) {
+          const { requestedAmount, fundHeadAmount, fundHead, ...rest } =
+            data.signedPayload;
+          data.signedPayload = rest;
+        }
+
+        return data;
+      }),
+    });
+  } catch (error) {
+    console.error("Media cell requests error:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+const mediaCellAction = async (req, res) => {
+  try {
+    if (req.user.role !== "MEDIA_CELL") {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { id } = req.params;
+
+    const { action, remarks = "", payload, signature } = req.body;
+
+    if (action !== "PUBLISHED") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid action",
+      });
+    }
+
+    const recruitment = await Recruitment.findById(id);
+
+    if (!recruitment) {
+      return res.status(404).json({
+        success: false,
+        message: "Recruitment not found",
+      });
+    }
+
+    if (getStage(recruitment) !== STAGES.MEDIA_PUBLISH) {
+      return res.status(400).json({
+        success: false,
+        message: "Recruitment is not awaiting publication",
+      });
+    }
+
+    // ======================================
+    // VERIFY PREVIOUS SIGNATURES (PI, DRRD, R&D, Dean, DRRD)
+    // ======================================
+
+    const chainError = await checkPreviousSignatures(recruitment, action);
+
+    if (chainError) {
+      return res.status(400).json({
+        success: false,
+        message: chainError,
+      });
+    }
+
+    // ======================================
+    // VERIFY SIGNATURE
+    // ======================================
+
+    const check = await verifyActionSignature({
+      userId: req.user.id,
+      payload,
+      signature,
+      recruitmentId: id,
+      action,
+      formHash: computeFormHash(recruitment),
+    });
+
+    if (!check.ok) {
+      return res.status(check.status).json({
+        success: false,
+        message: check.message,
+      });
+    }
+
+    recruitment.stage = STAGES.PUBLISHED;
+
+    recruitment.history.push({
+      stage: STAGES.MEDIA_PUBLISH,
+      action,
+      role: "MEDIA_CELL",
+      userId: check.user._id,
+      by: check.user.fullName,
+      remarks,
+      signature,
+      payload,
+    });
+
+    await recruitment.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Marked as published",
+      recruitment,
+    });
+  } catch (error) {
+    console.error("Media cell action error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Server Error",
+    });
+  }
+};
+
 export {
   verifyRecruitmentHistory,
   verifyRecruitmentPISignature,
@@ -1465,4 +1632,6 @@ export {
   drrdAction,
   rndFundCheck,
   getMyRequests,
+  getMediaCellRequests,
+  mediaCellAction
 };

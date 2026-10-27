@@ -1,11 +1,63 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_URL, axiosInstance } from "../../config/api";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
 import CryptoJS from "crypto-js";
+import { axiosInstance } from "../../config/api";
+import { Icon } from "../../components/Icons";
+import {
+  TextField,
+  PasswordField,
+  SelectField,
+  FormAlert,
+  SubmitButton,
+  ROLE_OPTIONS,
+} from "../../components/AuthFields";
+
+const DEPARTMENTS = [
+  "CSE",
+  "ECE",
+  "Mechanical",
+  "Civil",
+  "Electrical",
+  "R&D Department",
+  "ITIS",
+];
+
+const PASSWORD_RULES = [
+  { key: "length", label: "6+ characters" },
+  { key: "uppercase", label: "Uppercase" },
+  { key: "lowercase", label: "Lowercase" },
+  { key: "number", label: "Number" },
+  { key: "special", label: "Symbol" },
+];
+
+const getPasswordChecks = (password) => ({
+  length: password.length >= 6,
+  uppercase: /[A-Z]/.test(password),
+  lowercase: /[a-z]/.test(password),
+  number: /[0-9]/.test(password),
+  special: /[^A-Za-z0-9]/.test(password),
+});
+
+function PasswordChecklist({ checks }) {
+  return (
+    <ul aria-label="Password suggestions" className="auth-checklist">
+      {PASSWORD_RULES.map(({ key, label }) => (
+        <li key={key} className={`auth-check ${checks[key] ? "is-met" : ""}`}>
+          {checks[key] ? (
+            <Icon name="check-circle" size={16} />
+          ) : (
+            <Icon name="circle" size={16} />
+          )}
+          <span>{label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function SignupPage() {
   const navigate = useNavigate();
+
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -18,29 +70,30 @@ export default function SignupPage() {
 
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({});
-  const [passwordChecks, setPasswordChecks] = useState({
-    length: false,
-    uppercase: false,
-    lowercase: false,
-    number: false,
-    special: false,
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // Dynamic required validation
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+    setError("");
+  };
+
   const validate = () => {
-    let newErrors = {};
+    const newErrors = {};
+    const email = form.email.trim();
 
-    if (!form.fullName) newErrors.fullName = "Full Name is required";
+    if (!form.fullName.trim()) newErrors.fullName = "Full name is required";
 
-    if (!form.email) {
+    if (!email) {
       newErrors.email = "Email is required";
-    } else if (!form.email.endsWith("@iitbhilai.ac.in")) {
+    } else if (!email.endsWith("@iitbhilai.ac.in")) {
       newErrors.email = "Email must end with @iitbhilai.ac.in";
     }
 
-    if (!form.employeeId) newErrors.employeeId = "Employee ID is required";
+    if (!form.employeeId.trim())
+      newErrors.employeeId = "Employee ID is required";
 
     if (!form.department) newErrors.department = "Please select a department";
 
@@ -62,180 +115,145 @@ export default function SignupPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const getPasswordChecks = (password) => {
-    return {
-      length: password.length >= 6,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-      special: /[^A-Za-z0-9]/.test(password),
-    };
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    setForm({ ...form, [name]: value });
-
-    // clear field error
-    setErrors({ ...errors, [name]: "" });
-
-    // clear global error
-    setError("");
-
-    // 🔥 real-time password check
-    if (name === "password") {
-      setPasswordChecks(getPasswordChecks(value));
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validate()) return;
+    if (loading || !validate()) return;
 
     try {
-      const hashedPassword = CryptoJS.SHA256(form.password).toString();
+      setLoading(true);
 
-      const signupData = {
+      // The password is hashed in the browser before it is sent
+      const hashedPassword = CryptoJS.SHA256(form.password).toString();
+      const email = form.email.trim();
+
+      const res = await axiosInstance.post(`/api/signup`, {
         ...form,
+        email,
         password: hashedPassword,
         confirmPassword: hashedPassword,
-      };
-      const res = await axiosInstance.post(`/api/signup`, signupData);
+      });
 
       if (res.data.success) {
-        localStorage.setItem("signupEmail", form.email);
+        // The next step (key generation) saves the public key for this email
+        localStorage.setItem("signupEmail", email);
+        localStorage.setItem("setupToken", res.data.setupToken);
         navigate("/generate-key");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Signup failed");
+      console.error(err);
+
+      if (err.response) {
+        setError(err.response.data?.message || "Signup failed");
+      } else if (err.request) {
+        setError(
+          "Cannot reach the server. Check your connection and try again.",
+        );
+      } else {
+        setError("Signup failed");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-3 bg-white/10 p-4 sm:p-6 rounded-2xl backdrop-blur-md shadow border border-white/20"
-    >
-      {error && <p className="text-red-500 bg-white/20 p-2 rounded">{error}</p>}
+    <form onSubmit={handleSubmit} noValidate className="auth-form">
+      {error && <FormAlert>{error}</FormAlert>}
 
-      <input
-        name="fullName"
-        type="text"
-        placeholder="Full Name"
-        onChange={handleChange}
-        className="w-full p-2 rounded-lg bg-white text-black outline-none"
-      />
-      {errors.fullName && (
-        <p className="text-red-500 text-sm">{errors.fullName}</p>
-      )}
+      <div className="auth-row">
+        <TextField
+          label="Full name"
+          name="fullName"
+          autoComplete="name"
+          value={form.fullName}
+          onChange={handleChange}
+          error={errors.fullName}
+        />
 
-      <input
+        <TextField
+          label="Employee ID"
+          name="employeeId"
+          value={form.employeeId}
+          onChange={handleChange}
+          error={errors.employeeId}
+        />
+      </div>
+
+      <TextField
+        label="Email"
         name="email"
         type="email"
-        placeholder="Email"
+        autoComplete="username"
+        placeholder="name@iitbhilai.ac.in"
+        value={form.email}
         onChange={handleChange}
-        className="w-full p-2 rounded-lg bg-white text-black outline-none"
+        error={errors.email}
       />
-      {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
 
-      <input
-        name="employeeId"
-        type="text"
-        placeholder="Employee ID"
-        onChange={handleChange}
-        className="w-full p-2 rounded-lg bg-white text-black outline-none"
-      />
-      {errors.employeeId && (
-        <p className="text-red-500 text-sm">{errors.employeeId}</p>
-      )}
-
-      <select
-        name="department"
-        onChange={handleChange}
-        className="w-full p-2 rounded-lg bg-white text-black outline-none"
-      >
-        <option value="">Select Department</option>
-        <option>CSE</option>
-        <option>ECE</option>
-        <option>Mechanical</option>
-        <option>Civil</option>
-        <option>Electrical</option>
-        <option>R&D Department</option>
-      </select>
-      {errors.department && (
-        <p className="text-red-500 text-sm">{errors.department}</p>
-      )}
-
-      <select
-        name="role"
-        onChange={handleChange}
-        className="w-full p-2 rounded-lg bg-white text-black outline-none"
-      >
-        <option value="">Select Role</option>
-        <option value="PI">PI (Principal Investigator)</option>
-        <option value="DORD">DORD (Dean of R&D)</option>
-        <option value="DRRD">DRRD (Deputy Registrar of R&D)</option>
-        <option value="RND">RND (Research and Development)</option>
-      </select>
-      {errors.role && <p className="text-red-500 text-sm">{errors.role}</p>}
-
-      <div className="relative">
-        <input
-          name="password"
-          type={showPassword ? "text" : "password"}
-          placeholder="Password"
+      <div className="auth-row">
+        <SelectField
+          label="Department"
+          name="department"
+          value={form.department}
           onChange={handleChange}
-          className="w-full p-2 rounded-lg bg-white text-black outline-none pr-10"
-        />
-
-        {/* Eye Button */}
-        <span
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-2 cursor-pointer text-gray-600"
+          error={errors.department}
         >
-          {showPassword ? <FaEyeSlash /> : <FaEye />}
-        </span>
+          <option value="">Select department</option>
+          {DEPARTMENTS.map((department) => (
+            <option key={department} value={department}>
+              {department}
+            </option>
+          ))}
+        </SelectField>
+
+        <SelectField
+          label="Role"
+          name="role"
+          value={form.role}
+          onChange={handleChange}
+          error={errors.role}
+        >
+          <option value="">Select role</option>
+          {ROLE_OPTIONS.map((role) => (
+            <option key={role.value} value={role.value}>
+              {role.label}
+            </option>
+          ))}
+        </SelectField>
       </div>
-      {form.password && (
-        <div className="text-xs mt-2 space-y-1 text-red-500">
-          {!passwordChecks.length && <p>✖ At least 6 characters</p>}
 
-          {!passwordChecks.uppercase && <p>✖ 1 uppercase letter</p>}
+      <div className="auth-pw-group">
+        <div className="auth-row auth-row--pw">
+          <PasswordField
+            label="Password"
+            name="password"
+            autoComplete="new-password"
+            value={form.password}
+            onChange={handleChange}
+            error={errors.password}
+          />
 
-          {!passwordChecks.lowercase && <p>✖ 1 lowercase letter</p>}
-
-          {!passwordChecks.number && <p>✖ 1 number</p>}
-
-          {!passwordChecks.special && <p>✖ 1 special character</p>}
+          <PasswordField
+            label="Confirm password"
+            name="confirmPassword"
+            autoComplete="new-password"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            error={errors.confirmPassword}
+          />
         </div>
-      )}
 
-      <div className="relative">
-        <input
-          name="confirmPassword"
-          type={showConfirmPassword ? "text" : "password"}
-          placeholder="Confrm Password"
-          onChange={handleChange}
-          className="w-full p-2 rounded-lg bg-white text-black outline-none pr-10"
-        />
-
-        {/* Eye Button */}
-        <span
-          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-          className="absolute right-3 top-2 cursor-pointer text-gray-600"
-        >
-          {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-        </span>
+        {form.password && (
+          <PasswordChecklist checks={getPasswordChecks(form.password)} />
+        )}
       </div>
-      {errors.confirmPassword && (
-        <p className="text-red-500 text-sm">{errors.confirmPassword}</p>
-      )}
 
-      <button className="w-full bg-[var(--primaryAccent)] hover:bg-[var(--primaryAccent)]/70 text-white py-2 rounded-lg font-semibold mt-2">
-        Continue → Generate Keys
-      </button>
+      <div className="auth-submit">
+        <SubmitButton loading={loading} loadingText="Creating account...">
+          Create account
+        </SubmitButton>
+      </div>
     </form>
   );
 }

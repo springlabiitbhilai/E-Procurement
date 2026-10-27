@@ -15,6 +15,8 @@ import {
   getMyRequests,
   verifyRecruitmentPISignature,
   verifyRecruitmentHistory,
+  getMediaCellRequests,
+  mediaCellAction
 } from "../controllers/recruitmentController.js";
 
 // ======================================
@@ -70,16 +72,11 @@ router.put("/:id/reject", auth(["DORD"]), rejectRecruitment);
 // Verify the PI's digital signature on a recruitment request
 router.get(
   "/:id/verify-pi",
-  auth(["PI", "DRRD", "RND", "DORD"]),
+  auth(["PI", "DRRD", "RND", "DORD","MEDIA_CELL"]),
   verifyRecruitmentPISignature,
 );
 
-// Re-verify every signed step (PI, DRRD, R&D, Dean) of a request
-router.get(
-  "/:id/verify-history",
-  auth(["PI", "DRRD", "RND", "DORD"]),
-  verifyRecruitmentHistory,
-);
+
 
 router.put("/:id/approval-letter", async (req, res) => {
   try {
@@ -110,5 +107,20 @@ router.put("/:id/approval-letter", async (req, res) => {
     });
   }
 });
+
+// ======================================
+// MEDIA CELL ROUTES
+// ======================================
+
+router.get("/media/requests", auth(["MEDIA_CELL"]), getMediaCellRequests);
+
+router.put("/:id/media-action", auth(["MEDIA_CELL"]), mediaCellAction);
+
+// let the Media Cell re-verify the trail
+router.get(
+  "/:id/verify-history",
+  auth(["PI", "DRRD", "RND", "DORD", "MEDIA_CELL"]),
+  verifyRecruitmentHistory,
+);
 
 export default router;

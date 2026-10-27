@@ -61,7 +61,7 @@ const recruitmentSchema = new mongoose.Schema(
     },
 
     // Current desk of the request:
-    // PI -> DRRD -> RND -> DRRD -> DORD -> DRRD -> PI
+    // PI -> DRRD -> RND -> DRRD -> DORD -> DRRD -> PI + MEDIA_PUBLISH,PUBLISHED
     // No default: older records without a stage are derived in
     // utils/recruitmentWorkflow.js (getStage)
     stage: {
@@ -74,6 +74,8 @@ const recruitmentSchema = new mongoose.Schema(
         "DORD_APPROVAL",
         "DRRD_DISPATCH",
         "SENT_TO_PI",
+        "MEDIA_PUBLISH",
+        "PUBLISHED",
       ],
     },
 
@@ -123,5 +125,4 @@ const recruitmentSchema = new mongoose.Schema(
 );
 
 const Recruitment = mongoose.model("Recruitment", recruitmentSchema);
-let Project
 export default Recruitment;

@@ -164,19 +164,13 @@ export default function DashboardPI() {
             onClick={() => navigate("/project-registration-status")}
             className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 font-medium transition"
           >
-            📋 Registration Status
+            📋 New project Status
           </button>
           <button
             onClick={() => navigate("/my-recruitment-requests")}
             className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 font-medium transition"
           >
-            👥 Recruitment Requests
-          </button>
-          <button
-            onClick={() => navigate("/pi-fund-requests")}
-            className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 font-medium transition"
-          >
-            💸 Fund Booking Status
+            👥 Man power Hiring Requests
           </button>
         </div>
       </div>
@@ -274,7 +268,7 @@ export default function DashboardPI() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Total fund</p>
+                      <p className="text-gray-400">Total fund Received</p>
                       <p className="font-medium text-gray-700">
                         {formatMoney(payload.totalFundReceived)}
                       </p>

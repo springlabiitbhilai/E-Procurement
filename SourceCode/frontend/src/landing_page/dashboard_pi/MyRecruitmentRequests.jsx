@@ -5,12 +5,21 @@ import WorkflowTracker from "../../components/WorkflowTracker";
 import { STAGE_LABELS } from "../../utils/recruitmentWorkflow";
 
 // PI view of recruitment requests moving through
-// DRRD -> R&D -> DRRD -> DORD -> DRRD -> PI
+// DRRD -> R&D -> DRRD -> DORD -> DRRD -> PI, then published by the media cell
 
 const formatAmount = (value) => `₹${Number(value || 0).toLocaleString()}`;
 
+const formatDate = (value) =>
+  value ? new Date(value).toLocaleDateString() : "";
+
+// Only allow normal web links to be shown as clickable links
+const isWebUrl = (url) => /^https?:\/\//i.test(url || "");
+
 const getBadgeColor = (status) => {
   switch (status) {
+    case "Published":
+      return "bg-blue-100 text-blue-700";
+
     case "Approved":
       return "bg-green-100 text-green-700";
 
@@ -65,6 +74,10 @@ export default function MyRecruitmentRequests() {
       <div className="grid gap-6">
         {requests.map((request) => {
           const sent = request.stage === "SENT_TO_PI";
+          const approved = sent && request.status === "Approved";
+
+          // Set by the media cell once the advertisement is live on the website
+          const published = approved && Boolean(request.publication?.publishedAt);
 
           // Latest rejection remark from DRRD, R&D or DORD
           const rejection = [...(request.history || [])]
@@ -74,6 +87,13 @@ export default function MyRecruitmentRequests() {
                 entry.action,
               ),
             );
+
+          // What the badge shows
+          const badgeText = published
+            ? "Published"
+            : sent
+              ? request.status
+              : "In Progress";
 
           return (
             <div key={request._id} className="bg-white rounded-2xl shadow p-6">
@@ -93,14 +113,22 @@ export default function MyRecruitmentRequests() {
                 <div className="text-right">
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium ${getBadgeColor(
-                      sent ? request.status : "Pending",
+                      published
+                        ? "Published"
+                        : sent
+                          ? request.status
+                          : "Pending",
                     )}`}
                   >
-                    {sent ? request.status : "In Progress"}
+                    {badgeText}
                   </span>
 
                   <p className="text-sm text-blue-700 mt-2">
-                    {STAGE_LABELS[request.stage] || request.stage}
+                    {published
+                      ? "Live on the website"
+                      : approved
+                        ? "Awaiting publication by media cell"
+                        : STAGE_LABELS[request.stage] || request.stage}
                   </p>
                 </div>
               </div>
@@ -114,6 +142,44 @@ export default function MyRecruitmentRequests() {
                   <span className="font-semibold">Reason:</span>{" "}
                   {rejection.remarks}
                 </p>
+              )}
+
+              {/* Approved, waiting for the media cell */}
+              {approved && !published && (
+                <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                  <p className="font-semibold">
+                    All approvals are complete.
+                  </p>
+                  <p className="mt-1">
+                    The media cell receives the approved advertisement from the
+                    system and will publish it on the website. The link will
+                    appear here once it is live.
+                  </p>
+                </div>
+              )}
+
+              {/* Published by the media cell */}
+              {published && (
+                <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+                  <p className="font-semibold">
+                    Published on {formatDate(request.publication.publishedAt)}
+                  </p>
+
+                  {isWebUrl(request.publication.websiteUrl) ? (
+                    <a
+                      href={request.publication.websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-block text-blue-700 underline break-all"
+                    >
+                      View on the website
+                    </a>
+                  ) : (
+                    <p className="mt-1">
+                      The media cell has published this advertisement.
+                    </p>
+                  )}
+                </div>
               )}
 
               <div className="flex flex-wrap gap-4 mt-5 text-sm">

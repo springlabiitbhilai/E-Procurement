@@ -23,8 +23,8 @@ app.use(express.json());
 // Proxied requests in dev are same-origin, so this only blocks unknown external origins.
 app.use(
   cors({
-    origin:process.env.FRONTEND_URL,
-    credentials:true,
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
   }),
 );
 
@@ -33,17 +33,56 @@ connectDB();
 console.log("FRONTEND_URL =", process.env.FRONTEND_URL);
 console.log("JWT_SECRET =", process.env.JWT_SECRET ? "Loaded" : "Missing");
 
+// Offices that may have only ONE active account (enforced again by the
+// unique index in models/user.js)
+const OFFICER_ROLES = ["DRRD", "DORD", "RND", "MEDIA_CELL"];
+const ALLOWED_ROLES = ["PI", ...OFFICER_ROLES];
+
+// Setup tokens are signed with a different secret from login tokens, so they
+// can never be used to log in. They only allow saving the FIRST public key.
+const SETUP_SECRET = () => process.env.JWT_SECRET + "-keysetup";
+
+// ---------------------------------------------------------------------------
 // SIGNUP API
+// ---------------------------------------------------------------------------
 app.post("/api/signup", async (req, res) => {
   try {
     const { fullName, email, employeeId, department, role, password } =
       req.body;
+
+    if (!ALLOWED_ROLES.includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    if (
+      !fullName ||
+      !email ||
+      !employeeId ||
+      !department ||
+      !password ||
+      password.length < 8
+    ) {
+      return res.status(400).json({
+        message: "All fields are required (password at least 8 characters)",
+      });
+    }
 
     // check existing email
     const userExist = await User.findOne({ email });
     if (userExist) {
       return res.status(400).json({ message: "Email already registered" });
     }
+
+    // only one active account for each officer role
+    if (OFFICER_ROLES.includes(role)) {
+      const holder = await User.findOne({ role, active: { $ne: false } });
+      if (holder) {
+        return res.status(409).json({
+          message: `A ${role} account already exists. Only one is allowed.`,
+        });
+      }
+    }
+
     // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -57,37 +96,78 @@ app.post("/api/signup", async (req, res) => {
       password: hashedPassword,
     });
 
-    res.json({ success: true, userId: user._id });
+    // short-lived token that can only be used to save the first public key
+    const setupToken = jwt.sign(
+      { id: user._id, purpose: "key-setup" },
+      SETUP_SECRET(),
+      { expiresIn: "30m" },
+    );
+
+    res.json({ success: true, userId: user._id, setupToken });
   } catch (error) {
+    // two signups at the same moment: the unique index stops the second one
+    if (error.code === 11000 && error.keyPattern?.singletonRole) {
+      return res.status(409).json({
+        message:
+          "An account for this office already exists. Only one is allowed.",
+      });
+    }
+    console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// ⬇️ Save Public Key After Key Generation
+// ---------------------------------------------------------------------------
+// Save Public Key After Key Generation
+// Uses the setup token from signup (the user cannot log in yet).
+// The key can be saved only once and only for the account the token belongs to.
+// ---------------------------------------------------------------------------
 app.post("/api/save-public-key", async (req, res) => {
   try {
-    const { email, publicKey } = req.body;
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 
-    if (!email || !publicKey) {
-      return res.status(400).json({ message: "Missing fields" });
+    let userId;
+    try {
+      userId = jwt.verify(token, SETUP_SECRET()).id;
+    } catch {
+      return res.status(401).json({
+        message: "Key setup expired or invalid. Please sign up again.",
+      });
     }
 
+    const { publicKey } = req.body;
+
+    try {
+      crypto.createPublicKey(publicKey); // must be a real public key
+    } catch {
+      return res.status(400).json({ message: "Invalid public key" });
+    }
+
+    // matches only an account that has no key yet
     const user = await User.findOneAndUpdate(
-      { email },
+      { _id: userId, publicKey: { $in: [null, ""] } },
       { publicKey },
       { new: true },
     );
+
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(409).json({
+        message:
+          "A verification key is already registered for this account. Contact the administrator to replace it.",
+      });
     }
 
     res.json({ message: "Verification key saved successfully" });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// --- Login Route ---
+// ---------------------------------------------------------------------------
+// Login Route
+// ---------------------------------------------------------------------------
 app.post("/api/login", async (req, res) => {
   try {
     const { email, password, role } = req.body;
@@ -97,6 +177,10 @@ app.post("/api/login", async (req, res) => {
 
     if (user.role !== role)
       return res.status(403).json({ message: "Role mismatch" });
+
+    if (user.active === false) {
+      return res.status(403).json({ message: "Account is inactive" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid password" });
@@ -120,9 +204,9 @@ app.post("/api/login", async (req, res) => {
       user: {
         fullName: user.fullName,
         role: user.role,
-        email:user.email,
-        employeeId:user.employeeId,
-        department:user.department,
+        email: user.email,
+        employeeId: user.employeeId,
+        department: user.department,
       },
     });
   } catch (err) {

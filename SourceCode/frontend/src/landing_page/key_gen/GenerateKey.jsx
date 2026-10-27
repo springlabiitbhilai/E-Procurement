@@ -7,28 +7,42 @@ export default function GenerateKey() {
   const [success, setSuccess] = useState(false);
 
   const handleGenerate = async () => {
-    try {
-      setLoading(true);
+  if (loading) return;
 
-      const { publicKeyPem, privateKeyPem } = await generateKeyPair();
-    
-      // save public key to backend
-      await axiosInstance.post(`/api/save-public-key`, {
-        email: localStorage.getItem("signupEmail"),
-        publicKey: publicKeyPem,
-      });
+  const setupToken = localStorage.getItem("setupToken");
+  if (!setupToken) {
+    alert("Key setup expired. Please sign up again.");
+    return;
+  }
 
-      downloadFile("signing-key.pem", privateKeyPem);
+  try {
+    setLoading(true);
 
-      setSuccess(true);
-    } catch (err) {
-      console.error(err);
+    const { publicKeyPem, privateKeyPem } = await generateKeyPair();
 
-      alert(err.response?.data?.message || "Failed to save public key");
-    } finally {
-      setLoading(false);
-    }
-  };
+    await axiosInstance.post(
+      `/api/save-public-key`,
+      { publicKey: publicKeyPem },
+      {
+        headers: { Authorization: `Bearer ${setupToken}` },
+        timeout: 15000,
+      },
+    );
+
+    downloadFile("signing-key.pem", privateKeyPem);
+    localStorage.removeItem("setupToken");
+    setSuccess(true);
+  } catch (err) {
+    console.error(err);
+    alert(
+      err.code === "ECONNABORTED"
+        ? "The server did not respond. Please try again."
+        : err.response?.data?.message || "Failed to save public key",
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--primary)] text-white p-4 sm:p-6">
