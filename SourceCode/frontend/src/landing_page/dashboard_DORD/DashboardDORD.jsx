@@ -171,7 +171,7 @@ export default function DashboardDORD() {
   // APPROVE / REJECT (signed by the Dean)
   // ======================================
 
-  const submitDecision = async ({ privateKeyFile, signedPdfFile, reason }) => {
+  const submitDecision = async ({ privateKeyFile, reason }) => {
     const { recruitment, type } = decision;
     const approving = type === "approve";
 
@@ -192,26 +192,11 @@ export default function DashboardDORD() {
       const privateKey = await importPrivateKey(pem);
       const signatureDean = await signData(privateKey, payload);
 
-      if (approving) {
-        const formData = new FormData();
-
-        formData.append("signedPdf", signedPdfFile);
-        formData.append("payload", JSON.stringify(payload));
-        formData.append("signatureDean", signatureDean);
-
-        // The axios instance defaults to application/json, which would turn
-        // this FormData into JSON and drop the PDF. Send it as multipart.
-        await axiosInstance.put(
-          `/api/recruitment/${recruitment._id}/approve`,
-          formData,
-          { headers: { "Content-Type": "multipart/form-data" } },
-        );
-      } else {
-        await axiosInstance.put(`/api/recruitment/${recruitment._id}/reject`, {
-          payload,
-          signatureDean,
-        });
-      }
+      // Approve and reject send the same thing: the signed payload and signature
+      await axiosInstance.put(
+        `/api/recruitment/${recruitment._id}/${approving ? "approve" : "reject"}`,
+        { payload, signatureDean },
+      );
 
       alert(approving ? "Recruitment approved" : "Recruitment rejected");
 
@@ -562,7 +547,7 @@ export default function DashboardDORD() {
         }). ${
           decision?.type === "reject"
             ? "Give a reason and upload your signing key to digitally sign the rejection."
-            : "Upload your signing key and the signed approval PDF to digitally sign the approval."
+            : "Upload your signing key to digitally sign the approval."
         }`}
         confirmLabel={
           decision?.type === "reject" ? "Confirm Reject" : "Confirm Approve"
@@ -570,7 +555,6 @@ export default function DashboardDORD() {
         showReason={decision?.type === "reject"}
         requireReason={decision?.type === "reject"}
         reasonLabel="Rejection Reason"
-        requirePdf={decision?.type === "approve"}
         submitting={submitting}
         onClose={() => setDecision(null)}
         onConfirm={submitDecision}

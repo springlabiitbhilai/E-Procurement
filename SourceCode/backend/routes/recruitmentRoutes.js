@@ -16,7 +16,7 @@ import {
   verifyRecruitmentPISignature,
   verifyRecruitmentHistory,
   getMediaCellRequests,
-  mediaCellAction
+  mediaCellAction,
 } from "../controllers/recruitmentController.js";
 
 // ======================================
@@ -58,12 +58,7 @@ router.put("/:id/fund-check", auth(["RND"]), rndFundCheck);
 
 // Approve recruitment
 
-router.put(
-  "/:id/approve",
-  auth(["DORD"]),
-  upload.single("signedPdf"),
-  approveRecruitment,
-);
+router.put("/:id/approve", auth(["DORD"]), approveRecruitment);
 
 // Reject recruitment
 
@@ -72,11 +67,9 @@ router.put("/:id/reject", auth(["DORD"]), rejectRecruitment);
 // Verify the PI's digital signature on a recruitment request
 router.get(
   "/:id/verify-pi",
-  auth(["PI", "DRRD", "RND", "DORD","MEDIA_CELL"]),
+  auth(["PI", "DRRD", "RND", "DORD", "MEDIA_CELL"]),
   verifyRecruitmentPISignature,
 );
-
-
 
 router.put("/:id/approval-letter", async (req, res) => {
   try {

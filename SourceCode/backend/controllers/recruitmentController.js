@@ -741,16 +741,8 @@ const approveRecruitment = async (req, res) => {
     }
     const { id } = req.params;
 
-    const payload = JSON.parse(req.body.payload);
-
-    const signatureDean = req.body.signatureDean;
-
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Signed approval PDF missing",
-      });
-    }
+    // Same body shape as reject: the signed payload and the Dean's signature
+    const { payload, signatureDean } = req.body;
 
     // ======================================
     // FIND RECRUITMENT
@@ -813,23 +805,11 @@ const approveRecruitment = async (req, res) => {
     const deanUser = check.user;
 
     // ======================================
-    // UPLOAD SIGNED APPROVAL PDF
-    // ======================================
-
-    const uploadResult = await uploadPdfToCloudinary(
-      req.file.buffer,
-      "e-procura-signed-approvals",
-      `signed-approval-${recruitment._id}-${Date.now()}.pdf`,
-    );
-
-    // ======================================
     // UPDATE STATUS
     // Final status is set when DRRD sends the file to the PI
     // ======================================
 
     recruitment.stage = STAGES.DRRD_DISPATCH;
-
-    recruitment.signedApprovalPdf = uploadResult.secure_url;
 
     recruitment.history.push({
       stage: STAGES.DORD_APPROVAL,
@@ -1116,7 +1096,7 @@ const drrdAction = async (req, res) => {
       recruitment.status = "Rejected";
     }
 
-        let finalStage = nextStage;
+    let finalStage = nextStage;
 
     if (action === "SEND_TO_PI") {
       const approved = getDeanDecision(recruitment)?.action === "APPROVED";
@@ -1317,7 +1297,7 @@ const getMyRequests = async (req, res) => {
     }).sort({ createdAt: -1 });
 
     res.status(200).json(
-           requests.map((request) => {
+      requests.map((request) => {
         const stage = getStage(request);
         const data = { ...request.toObject(), stage };
 
@@ -1364,11 +1344,11 @@ const verifyRecruitmentPISignature = async (req, res) => {
     }
 
     if (
-  req.user.role === "MEDIA_CELL" &&
-  ![STAGES.MEDIA_PUBLISH, STAGES.PUBLISHED].includes(getStage(recruitment))
-) {
-  return res.status(403).json({ success: false, message: "Access denied" });
-}
+      req.user.role === "MEDIA_CELL" &&
+      ![STAGES.MEDIA_PUBLISH, STAGES.PUBLISHED].includes(getStage(recruitment))
+    ) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
 
     // A PI can only verify their own request
     if (req.user.role === "PI" && recruitment.requestedBy !== req.user.email) {
@@ -1440,7 +1420,7 @@ const verifyRecruitmentHistory = async (req, res) => {
       });
     }
 
-        const stage = getStage(recruitment);
+    const stage = getStage(recruitment);
 
     let entries = recruitment.history || [];
 
@@ -1504,6 +1484,7 @@ const getMediaCellRequests = async (req, res) => {
       success: true,
       recruitments: recruitments.map((r) => {
         const data = { ...r.toObject(), stage: getStage(r) };
+        data.formHash = computeFormHash(r)
 
         // Media Cell has no use for fund details (response only; the
         // stored signedPayload is untouched, so verification is unaffected)
@@ -1524,7 +1505,6 @@ const getMediaCellRequests = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
-
 const mediaCellAction = async (req, res) => {
   try {
     if (req.user.role !== "MEDIA_CELL") {
@@ -1633,5 +1613,5 @@ export {
   rndFundCheck,
   getMyRequests,
   getMediaCellRequests,
-  mediaCellAction
+  mediaCellAction,
 };

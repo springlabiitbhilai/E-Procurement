@@ -6,7 +6,7 @@ import {
   signData,
   canonicalPayload,
 } from "../../utils/digitalSignature";
-import { STAGE_LABELS, computeFormHash } from "../../utils/recruitmentWorkflow";
+import { STAGE_LABELS } from "../../utils/recruitmentWorkflow";
 import DecisionModal from "../../components/DecisionModel";
 import WorkflowTracker from "../../components/WorkflowTracker";
 import PreviousSignaturesCheck from "../../components/PreviousSignaturesCheck";
@@ -123,10 +123,14 @@ export default function DashboardMediaCell() {
     try {
       setSubmitting(true);
 
+      if (!recruitment.formHash) {
+    throw new Error("Please refresh the dashboard and try again.");
+  }
+
       const payload = canonicalPayload({
         recruitmentId: recruitment._id,
         projectCode: recruitment.signedPayload?.projectCode,
-        formHash: await computeFormHash(recruitment),
+        formHash: recruitment.formHash,   // from the server
         action: "PUBLISHED",
         signedBy: "Media Cell",
         timestamp: new Date().toISOString(),
