@@ -172,10 +172,14 @@ export default function ManpowerHiringForms({
     const agency = formData.sponsoringAgency?.replace(/\s+/g, "");
     const position = formData.positions[0]?.positionName?.replace(/\s+/g, "");
 
+    const now = new Date();
+    const month = now.toLocaleString("en-US", { month: "long" });
+    const year = now.getFullYear();
+
     if (agency && position) {
       setFormData((prev) => ({
         ...prev,
-        emailSubject: `${agency}-${position}`,
+        emailSubject: `${agency}-${month}-${year}-${position}`,
       }));
     }
   }, [formData.sponsoringAgency, formData.positions]);
@@ -330,7 +334,7 @@ export default function ManpowerHiringForms({
 
     if (formData.interviewDate && formData.submissionDeadline) {
       const interview = new Date(formData.interviewDate);
-      const submission = new Date(formData.submissionDeadline);
+      const submission = new Date(formData.submissionDeadline?.replace("T"," "));
       submission.setHours(0, 0, 0, 0);
 
       if (interview < submission) {
