@@ -333,9 +333,9 @@ export default function DashboardMediaCell() {
                         </a>
                       )}
 
-                      {recruitment.signedApprovalPdf && (
+                      {recruitment.approvalLetterPath && (
                         <a
-                          href={recruitment.signedApprovalPdf}
+                          href={recruitment.approvalLetterPath}
                           target="_blank"
                           rel="noreferrer"
                           download

@@ -1302,7 +1302,6 @@ const getMyRequests = async (req, res) => {
         const data = { ...request.toObject(), stage };
 
         if (!isDispatched(stage)) {
-          delete data.signedApprovalPdf;
           delete data.deanDecision;
           data.history = (data.history || []).filter(
             (entry) => entry.role !== "DORD",

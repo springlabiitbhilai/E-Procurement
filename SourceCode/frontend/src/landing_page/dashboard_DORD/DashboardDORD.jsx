@@ -400,8 +400,7 @@ export default function DashboardDORD() {
                     {/* Documents to review */}
 
                     {(recruitment.recruitmentAdPath ||
-                      recruitment.approvalLetterPath ||
-                      recruitment.signedApprovalPdf) && (
+                      recruitment.approvalLetterPath) && (
                       <div className="flex flex-wrap gap-4 mt-4 text-sm">
                         {recruitment.recruitmentAdPath && (
                           <a
@@ -425,16 +424,6 @@ export default function DashboardDORD() {
                           </a>
                         )}
 
-                        {recruitment.signedApprovalPdf && (
-                          <a
-                            href={recruitment.signedApprovalPdf}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Signed Approval (DORD)
-                          </a>
-                        )}
                       </div>
                     )}
 

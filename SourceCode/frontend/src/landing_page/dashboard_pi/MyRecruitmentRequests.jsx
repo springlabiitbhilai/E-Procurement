@@ -26,7 +26,7 @@ const STEPS = [
   "DORD Approval",
   "DRRD Dispatch",
   "Sent to PI & Media Cell",
-  "Published on Website",
+  "Website Upload",
 ];
 
 // Which step is current for each stage (1-based).
@@ -52,8 +52,8 @@ const REJECT_STEP = {
 const DISPATCHED = ["SENT_TO_PI", "MEDIA_PUBLISH", "PUBLISHED"];
 
 const STAGE_TEXT = {
-  MEDIA_PUBLISH: "Sent to you and the media cell, awaiting web upload",
-  PUBLISHED: "Published on the website",
+  MEDIA_PUBLISH: "Waiting for the media cell to upload it to the website",
+  PUBLISHED: "Live on the website",
 };
 
 const buildSteps = (request, rejection) => {
@@ -112,7 +112,7 @@ function ProgressSteps({ steps }) {
 
 const getBadgeColor = (label) => {
   switch (label) {
-    case "Published":
+    case "Live on Website":
       return "bg-blue-100 text-blue-700";
 
     case "Approved":
@@ -193,7 +193,7 @@ export default function MyRecruitmentRequests() {
           const publishNote = (publishEntry?.remarks || "").trim();
 
           const badgeText = published
-            ? "Published"
+            ? "Live on Website"
             : rejected
               ? "Rejected"
               : approved
@@ -259,11 +259,17 @@ export default function MyRecruitmentRequests() {
               {/* Published by the media cell */}
               {published && (
                 <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-                  <p className="font-semibold">
-                    Published on the website
-                    {publishEntry?.at && ` on ${formatDate(publishEntry.at)}`}
-                    {publishEntry?.by && ` by ${publishEntry.by}`}
-                  </p>
+                  <p className="font-semibold">Live on the website</p>
+
+                  {(publishEntry?.at || publishEntry?.by) && (
+                    <p className="mt-1">
+                      Uploaded by the media cell
+                      {publishEntry?.by && ` (${publishEntry.by})`}
+                      {publishEntry?.at &&
+                        ` on ${formatDate(publishEntry.at)}`}
+                      .
+                    </p>
+                  )}
 
                   {isWebUrl(publishNote) ? (
                     <a
@@ -308,16 +314,6 @@ export default function MyRecruitmentRequests() {
                   </a>
                 )}
 
-                {dispatched && request.signedApprovalPdf && (
-                  <a
-                    href={request.signedApprovalPdf}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-primary"
-                  >
-                    Download Signed Approval
-                  </a>
-                )}
               </div>
             </div>
           );

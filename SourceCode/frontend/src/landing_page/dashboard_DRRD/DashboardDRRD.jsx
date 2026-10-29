@@ -441,16 +441,6 @@ export default function DashboardDRRD() {
                             </a>
                           )}
 
-                          {recruitment.signedApprovalPdf && (
-                            <a
-                              href={recruitment.signedApprovalPdf}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-600 hover:underline"
-                            >
-                              Signed Approval (DORD)
-                            </a>
-                          )}
                         </div>
                       </div>
                     )}

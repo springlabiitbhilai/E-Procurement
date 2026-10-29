@@ -44,10 +44,6 @@ const recruitmentSchema = new mongoose.Schema(
       type: String,
     },
 
-    signedApprovalPdf: {
-      type: String,
-    },
-
     // ======================================
     // APPROVAL WORKFLOW
     // ======================================
