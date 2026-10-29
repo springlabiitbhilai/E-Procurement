@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { axiosInstance } from "../../config/api";
 import BackButton from "../../components/BackButton";
-import WorkflowTracker from "../../components/WorkflowTracker";
 import { STAGE_LABELS } from "../../utils/recruitmentWorkflow";
 
-// PI view of recruitment requests moving through
-// DRRD -> R&D -> DRRD -> DORD -> DRRD -> PI, then published by the media cell
+// PI view of recruitment requests:
+// PI -> DRRD -> R&D -> DRRD -> DORD -> DRRD -> (PI + MEDIA CELL) -> PUBLISHED
 
 const formatAmount = (value) => `₹${Number(value || 0).toLocaleString()}`;
 
@@ -13,10 +12,106 @@ const formatDate = (value) =>
   value ? new Date(value).toLocaleDateString() : "";
 
 // Only allow normal web links to be shown as clickable links
-const isWebUrl = (url) => /^https?:\/\//i.test(url || "");
+const isWebUrl = (url) => /^https?:\/\//i.test((url || "").trim());
 
-const getBadgeColor = (status) => {
-  switch (status) {
+// ---------------------------------------------------------------------------
+// Progress steps
+// ---------------------------------------------------------------------------
+
+const STEPS = [
+  "PI Submitted",
+  "DRRD Verification",
+  "R&D Fund Check",
+  "DRRD Review",
+  "DORD Approval",
+  "DRRD Dispatch",
+  "Sent to PI & Media Cell",
+  "Published on Website",
+];
+
+// Which step is current for each stage (1-based).
+// PUBLISHED is 9: every step is complete.
+const STAGE_STEP = {
+  DRRD_VERIFICATION: 2,
+  RND_FUND_CHECK: 3,
+  DRRD_REVIEW: 4,
+  DORD_APPROVAL: 5,
+  DRRD_DISPATCH: 6,
+  MEDIA_PUBLISH: 8,
+  PUBLISHED: 9,
+};
+
+// Step at which a rejection can happen, by the stage stored in the history
+const REJECT_STEP = {
+  DRRD_VERIFICATION: 2,
+  DRRD_REVIEW: 4,
+  DORD_APPROVAL: 5,
+};
+
+// Stages from which the PI may see the final decision and files
+const DISPATCHED = ["SENT_TO_PI", "MEDIA_PUBLISH", "PUBLISHED"];
+
+const STAGE_TEXT = {
+  MEDIA_PUBLISH: "Sent to you and the media cell, awaiting web upload",
+  PUBLISHED: "Published on the website",
+};
+
+const buildSteps = (request, rejection) => {
+  const { stage, status } = request;
+
+  // Rejected: show the steps up to where it stopped
+  if (stage === "SENT_TO_PI" && status === "Rejected") {
+    const at = REJECT_STEP[rejection?.stage] || 6;
+
+    return STEPS.slice(0, at).map((label, i) =>
+      i + 1 < at
+        ? { label, state: "done" }
+        : { label: `Rejected at ${label}`, state: "rejected" },
+    );
+  }
+
+  // Approved before the media cell step existed
+  if (stage === "SENT_TO_PI") {
+    return STEPS.slice(0, 7).map((label) => ({ label, state: "done" }));
+  }
+
+  const current = STAGE_STEP[stage] || 2;
+
+  return STEPS.map((label, i) => ({
+    label,
+    state:
+      i + 1 < current ? "done" : i + 1 === current ? "current" : "pending",
+  }));
+};
+
+const STEP_STYLE = {
+  done: "bg-green-100 text-green-700",
+  current: "bg-blue-600 text-white",
+  pending: "bg-gray-100 text-gray-500",
+  rejected: "bg-red-600 text-white",
+};
+
+function ProgressSteps({ steps }) {
+  return (
+    <ol aria-label="Request progress" className="flex flex-wrap gap-2">
+      {steps.map((step, index) => (
+        <li
+          key={step.label}
+          aria-current={step.state === "current" ? "step" : undefined}
+          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+            STEP_STYLE[step.state]
+          }`}
+        >
+          {step.state === "done" && "✓ "}
+          {index + 1}. {step.label}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const getBadgeColor = (label) => {
+  switch (label) {
     case "Published":
       return "bg-blue-100 text-blue-700";
 
@@ -73,11 +168,13 @@ export default function MyRecruitmentRequests() {
 
       <div className="grid gap-6">
         {requests.map((request) => {
-          const sent = request.stage === "SENT_TO_PI";
-          const approved = sent && request.status === "Approved";
+          const stage = request.stage;
 
-          // Set by the media cell once the advertisement is live on the website
-          const published = approved && Boolean(request.publication?.publishedAt);
+          const dispatched = DISPATCHED.includes(stage);
+          const rejected = stage === "SENT_TO_PI" && request.status === "Rejected";
+          const awaitingUpload = stage === "MEDIA_PUBLISH";
+          const published = stage === "PUBLISHED";
+          const approved = awaitingUpload || published || (dispatched && !rejected);
 
           // Latest rejection remark from DRRD, R&D or DORD
           const rejection = [...(request.history || [])]
@@ -88,12 +185,22 @@ export default function MyRecruitmentRequests() {
               ),
             );
 
-          // What the badge shows
+          // Media cell's signed "published" entry
+          const publishEntry = (request.history || []).find(
+            (entry) =>
+              entry.stage === "MEDIA_PUBLISH" && entry.action === "PUBLISHED",
+          );
+          const publishNote = (publishEntry?.remarks || "").trim();
+
           const badgeText = published
             ? "Published"
-            : sent
-              ? request.status
-              : "In Progress";
+            : rejected
+              ? "Rejected"
+              : approved
+                ? "Approved"
+                : "In Progress";
+
+          const steps = buildSteps(request, rejection);
 
           return (
             <div key={request._id} className="bg-white rounded-2xl shadow p-6">
@@ -113,47 +220,38 @@ export default function MyRecruitmentRequests() {
                 <div className="text-right">
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium ${getBadgeColor(
-                      published
-                        ? "Published"
-                        : sent
-                          ? request.status
-                          : "Pending",
+                      badgeText,
                     )}`}
                   >
                     {badgeText}
                   </span>
 
                   <p className="text-sm text-blue-700 mt-2">
-                    {published
-                      ? "Live on the website"
-                      : approved
-                        ? "Awaiting publication by media cell"
-                        : STAGE_LABELS[request.stage] || request.stage}
+                    {STAGE_TEXT[stage] || STAGE_LABELS[stage] || stage}
                   </p>
                 </div>
               </div>
 
               <div className="mt-5">
-                <WorkflowTracker recruitment={request} />
+                <ProgressSteps steps={steps} />
               </div>
 
-              {sent && request.status === "Rejected" && rejection?.remarks && (
+              {rejected && rejection?.remarks && (
                 <p className="mt-4 bg-red-50 text-red-700 rounded-lg p-3 text-sm">
                   <span className="font-semibold">Reason:</span>{" "}
                   {rejection.remarks}
                 </p>
               )}
 
-              {/* Approved, waiting for the media cell */}
-              {approved && !published && (
+              {/* Approved: files are with the PI and the media cell */}
+              {awaitingUpload && (
                 <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-                  <p className="font-semibold">
-                    All approvals are complete.
-                  </p>
+                  <p className="font-semibold">All approvals are complete.</p>
                   <p className="mt-1">
-                    The media cell receives the approved advertisement from the
-                    system and will publish it on the website. The link will
-                    appear here once it is live.
+                    The approved files are with you and with the media cell. You
+                    do not need to send them. The media cell uploads the
+                    advertisement to the website, and this page updates when it
+                    is live.
                   </p>
                 </div>
               )}
@@ -162,12 +260,14 @@ export default function MyRecruitmentRequests() {
               {published && (
                 <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
                   <p className="font-semibold">
-                    Published on {formatDate(request.publication.publishedAt)}
+                    Published on the website
+                    {publishEntry?.at && ` on ${formatDate(publishEntry.at)}`}
+                    {publishEntry?.by && ` by ${publishEntry.by}`}
                   </p>
 
-                  {isWebUrl(request.publication.websiteUrl) ? (
+                  {isWebUrl(publishNote) ? (
                     <a
-                      href={request.publication.websiteUrl}
+                      href={publishNote}
                       target="_blank"
                       rel="noreferrer"
                       className="mt-1 inline-block text-blue-700 underline break-all"
@@ -175,9 +275,12 @@ export default function MyRecruitmentRequests() {
                       View on the website
                     </a>
                   ) : (
-                    <p className="mt-1">
-                      The media cell has published this advertisement.
-                    </p>
+                    publishNote && (
+                      <p className="mt-1">
+                        <span className="font-semibold">Note:</span>{" "}
+                        {publishNote}
+                      </p>
+                    )
                   )}
                 </div>
               )}
@@ -205,7 +308,7 @@ export default function MyRecruitmentRequests() {
                   </a>
                 )}
 
-                {sent && request.signedApprovalPdf && (
+                {dispatched && request.signedApprovalPdf && (
                   <a
                     href={request.signedApprovalPdf}
                     target="_blank"
