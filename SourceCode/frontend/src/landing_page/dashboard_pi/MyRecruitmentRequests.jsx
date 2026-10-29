@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { axiosInstance } from "../../config/api";
 import BackButton from "../../components/BackButton";
 import { STAGE_LABELS } from "../../utils/recruitmentWorkflow";
+import PreviousSignaturesCheck from "../../components/PreviousSignaturesCheck";
+import { usePreviousSignatureChecks } from "../../utils/useHistoryVerification";
 
 // PI view of recruitment requests:
 // PI -> DRRD -> R&D -> DRRD -> DORD -> DRRD -> (PI + MEDIA CELL) -> PUBLISHED
@@ -164,6 +166,10 @@ export default function MyRecruitmentRequests() {
     fetchRequests();
   }, []);
 
+  // Re-verifies every signed step of each request (same check the other
+  // dashboards use). Must stay above the early return below.
+  const signatureChecks = usePreviousSignatureChecks(requests) || {};
+
   if (loading) {
     return <p className="p-10">Loading...</p>;
   }
@@ -278,6 +284,13 @@ export default function MyRecruitmentRequests() {
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* Signature verification result for every step above */}
+              {(request.history || []).length > 0 && (
+                <div className="mt-3">
+                  <PreviousSignaturesCheck check={signatureChecks[request._id]} />
+                </div>
               )}
 
               {rejected && rejection?.remarks && (
