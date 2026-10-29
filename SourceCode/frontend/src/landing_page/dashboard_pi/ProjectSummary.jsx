@@ -387,7 +387,7 @@ export default function ProjectSummary() {
         )}`}
       >
         <img
-          src="../../assets/signed-badge.png"
+            src={signedBadge}
           alt="Signed Badge"
           className="h-20 object-contain"
         />

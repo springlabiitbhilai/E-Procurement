@@ -76,7 +76,8 @@ const generateApprovalLetter = async (req, res) => {
             width:100%;
             padding:0 25px;
             box-sizing:border-box;
-            font-family:'Times New Roman';
+            font-family:Noto Sans Devanagari', 'Nirmala UI',
+               'Mangal', sans-serif,'Times New Roman';
         ">
 
             <div style="

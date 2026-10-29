@@ -968,7 +968,7 @@ export default function ManpowerHiringForms({
                   name="submissionDeadline"
                   required
                   onFocus={(e) => e.target.showPicker?.()}
-                  value={formData.submissionDeadline}
+                  value={formData.submissionDeadline?.replace("T"," ")}
                   onChange={handleChange}
                   className={inputClass}
                 />
