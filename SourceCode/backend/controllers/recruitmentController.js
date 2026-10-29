@@ -76,7 +76,7 @@ const generateApprovalLetter = async (req, res) => {
             width:100%;
             padding:0 25px;
             box-sizing:border-box;
-            font-family: "Noto Sans Devanagari", sans-serif;
+            font-family:'Times New Roman';
         ">
 
             <div style="
@@ -231,12 +231,6 @@ const generateApprovalLetter = async (req, res) => {
 
     // for Production
     const isProduction = process.env.NODE_ENV === "production";
-
-    if (isProduction) {
-      await chromium.font(
-        path.join(__dirname, "../fonts/NotoSansDevanagari-Regular.ttf"),
-      );
-    }
 
     const browser = await puppeteer.launch({
       executablePath: isProduction
@@ -459,7 +453,7 @@ const createRecruitmentAdvertisement = async (req, res) => {
             width:100%;
             padding:0 25px;
             box-sizing:border-box;
-            font-family:"Noto Sans Devanagari",'Times New Roman';
+            font-family:'Times New Roman';
         ">
 
             <div style="
@@ -1490,7 +1484,7 @@ const getMediaCellRequests = async (req, res) => {
       success: true,
       recruitments: recruitments.map((r) => {
         const data = { ...r.toObject(), stage: getStage(r) };
-        data.formHash = computeFormHash(r);
+        data.formHash = computeFormHash(r)
 
         // Media Cell has no use for fund details (response only; the
         // stored signedPayload is untouched, so verification is unaffected)
