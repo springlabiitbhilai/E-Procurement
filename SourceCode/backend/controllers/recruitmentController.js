@@ -224,21 +224,21 @@ const generateApprovalLetter = async (req, res) => {
     // Launch Browser
 
     // for local
-    const browser = await puppeteer.launch({
-      executablePath: puppeteer.executablePath(),
-      headless: true,
-    });
-
-    // for Production
-    // const isProduction = process.env.NODE_ENV === "production";
-
     // const browser = await puppeteer.launch({
-    //   executablePath: isProduction
-    //     ? await chromium.executablePath()
-    //     : puppeteer.executablePath(),
-    //   args: isProduction ? chromium.args : [],
+    //   executablePath: puppeteer.executablePath(),
     //   headless: true,
     // });
+
+    // for Production
+    const isProduction = process.env.NODE_ENV === "production";
+
+    const browser = await puppeteer.launch({
+      executablePath: isProduction
+        ? await chromium.executablePath()
+        : puppeteer.executablePath(),
+      args: isProduction ? chromium.args : [],
+      headless: true,
+    });
 
     const page = await browser.newPage();
 
