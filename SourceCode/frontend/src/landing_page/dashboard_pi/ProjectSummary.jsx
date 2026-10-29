@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import BackButton from "../../components/BackButton";
 import { axiosInstance } from "../../config/api";
 import DecisionModal from "../../components/DecisionModel";
+import signedBadge from "../../../assets/signed-badge.png";
 import {
   readPem,
   importPrivateKey,
@@ -366,7 +367,7 @@ export default function ProjectSummary() {
           )}`}
         >
           <img
-            src="../../assets/signed-badge.png"
+            src={signedBadge}
             alt="Signed Badge"
             className="h-20 object-contain"
           />
