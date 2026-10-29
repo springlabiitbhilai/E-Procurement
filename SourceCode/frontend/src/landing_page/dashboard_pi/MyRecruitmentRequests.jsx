@@ -33,6 +33,56 @@ const ACTION_LABEL = {
 const isWebUrl = (url) => /^https?:\/\//i.test((url || "").trim());
 
 // ---------------------------------------------------------------------------
+// Per-step signature badge
+// Reads the result of GET /api/recruitment/:id/verify-history. A step is only
+// shown as verified when its result clearly says so; anything unreadable is
+// shown as "Cannot verify" instead of guessing.
+// ---------------------------------------------------------------------------
+
+const resultOk = (r) => {
+  if (r == null) return null;
+  if (typeof r === "boolean") return r;
+
+  for (const key of ["valid", "verified", "ok", "isValid", "signatureValid"]) {
+    if (typeof r[key] === "boolean") return r[key];
+  }
+
+  const status = String(r.status ?? "").toLowerCase();
+  if (["valid", "verified", "ok", "success"].includes(status)) return true;
+  if (["invalid", "failed", "error", "tampered"].includes(status)) return false;
+
+  return null;
+};
+
+const lineStatus = (check, entries, index) => {
+  if (!check || check.loading) return "checking";
+  if (check.error) return "unknown";
+
+  const raw = check.results;
+  const results = Array.isArray(raw) ? raw : raw ? Object.values(raw) : [];
+
+  // Results come back in the same order as the history entries
+  let item = results.length === entries.length ? results[index] : undefined;
+
+  if (item === undefined) {
+    const entry = entries[index];
+    item = results.find(
+      (r) => r && r.stage === entry.stage && r.action === entry.action,
+    );
+  }
+
+  const ok = resultOk(item);
+  return ok === true ? "valid" : ok === false ? "invalid" : "unknown";
+};
+
+const LINE_BADGE = {
+  valid: { text: "✓ Signature verified", cls: "bg-green-100 text-green-700" },
+  invalid: { text: "✕ Signature failed", cls: "bg-red-100 text-red-700" },
+  unknown: { text: "? Cannot verify", cls: "bg-yellow-100 text-yellow-800" },
+  checking: { text: "Verifying…", cls: "bg-gray-100 text-gray-600" },
+};
+
+// ---------------------------------------------------------------------------
 // Progress steps
 // ---------------------------------------------------------------------------
 
@@ -147,6 +197,7 @@ const getBadgeColor = (label) => {
 export default function MyRecruitmentRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lineChecks, setLineChecks] = useState({}); // requestId -> { results }
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -165,6 +216,37 @@ export default function MyRecruitmentRequests() {
 
     fetchRequests();
   }, []);
+
+  // Verify every signed step of every request
+  useEffect(() => {
+    if (!requests.length) return;
+
+    let cancelled = false;
+
+    setLineChecks(
+      Object.fromEntries(requests.map((r) => [r._id, { loading: true }])),
+    );
+
+    Promise.all(
+      requests.map(async (r) => {
+        try {
+          const res = await axiosInstance.get(
+            `/api/recruitment/${r._id}/verify-history`,
+          );
+          return [r._id, { results: res.data?.results }];
+        } catch (err) {
+          console.error("verify-history failed", err);
+          return [r._id, { error: true }];
+        }
+      }),
+    ).then((pairs) => {
+      if (!cancelled) setLineChecks(Object.fromEntries(pairs));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requests]);
 
   // Re-verifies every signed step of each request (same check the other
   // dashboards use). Must stay above the early return below.
@@ -261,7 +343,17 @@ export default function MyRecruitmentRequests() {
               {/* Who signed each step, and when */}
               {(request.history || []).length > 0 && (
                 <ul aria-label="Signed steps" className="mt-4 space-y-2 text-sm">
-                  {request.history.map((entry, index) => (
+                  {request.history.map((entry, index) => {
+                    const badge =
+                      LINE_BADGE[
+                        lineStatus(
+                          lineChecks[request._id],
+                          request.history,
+                          index,
+                        )
+                      ];
+
+                    return (
                     <li
                       key={`${entry.stage}-${entry.action}-${index}`}
                       className="border-l-4 border-blue-200 pl-3"
@@ -274,6 +366,11 @@ export default function MyRecruitmentRequests() {
                           {" "}
                           · {formatDateTime(entry.at)}
                         </span>
+                        <span
+                          className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}`}
+                        >
+                          {badge.text}
+                        </span>
                       </p>
 
                       {entry.remarks && (
@@ -282,7 +379,8 @@ export default function MyRecruitmentRequests() {
                         </p>
                       )}
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
 
