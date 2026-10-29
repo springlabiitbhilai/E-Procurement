@@ -11,6 +11,22 @@ const formatAmount = (value) => `₹${Number(value || 0).toLocaleString()}`;
 const formatDate = (value) =>
   value ? new Date(value).toLocaleDateString() : "";
 
+const formatDateTime = (value) =>
+  value ? new Date(value).toLocaleString() : "";
+
+// What each signed action is called in the timeline
+const ACTION_LABEL = {
+  SUBMITTED: "Submitted",
+  FORWARD: "Forwarded",
+  REJECT: "Rejected",
+  FUND_AVAILABLE: "Fund available",
+  FUND_NOT_AVAILABLE: "Fund not available",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  SEND_TO_PI: "Sent to PI",
+  PUBLISHED: "Uploaded to website",
+};
+
 // Only allow normal web links to be shown as clickable links
 const isWebUrl = (url) => /^https?:\/\//i.test((url || "").trim());
 
@@ -236,6 +252,34 @@ export default function MyRecruitmentRequests() {
                 <ProgressSteps steps={steps} />
               </div>
 
+              {/* Who signed each step, and when */}
+              {(request.history || []).length > 0 && (
+                <ul aria-label="Signed steps" className="mt-4 space-y-2 text-sm">
+                  {request.history.map((entry, index) => (
+                    <li
+                      key={`${entry.stage}-${entry.action}-${index}`}
+                      className="border-l-4 border-blue-200 pl-3"
+                    >
+                      <p className="text-gray-900">
+                        <span className="font-semibold">{entry.role}</span> (
+                        {entry.by}):{" "}
+                        {ACTION_LABEL[entry.action] || entry.action}
+                        <span className="text-gray-400">
+                          {" "}
+                          · {formatDateTime(entry.at)}
+                        </span>
+                      </p>
+
+                      {entry.remarks && (
+                        <p className="text-gray-600">
+                          Remarks: {entry.remarks}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               {rejected && rejection?.remarks && (
                 <p className="mt-4 bg-red-50 text-red-700 rounded-lg p-3 text-sm">
                   <span className="font-semibold">Reason:</span>{" "}
@@ -313,7 +357,6 @@ export default function MyRecruitmentRequests() {
                     Approval Letter
                   </a>
                 )}
-
               </div>
             </div>
           );
